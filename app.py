@@ -18,8 +18,8 @@ def validate_api_key(api_key):
 
 def call_gemini_api(api_key, prompt):
     """Call Gemini API directly using REST"""
-    # Updated to correct Gemini API endpoint
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+    # Correct Gemini API endpoint based on official documentation
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     
     headers = {
         'Content-Type': 'application/json',
@@ -42,11 +42,15 @@ def call_gemini_api(api_key, prompt):
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
         
-        # Debug information
-        if response.status_code != 200:
-            # Try alternative endpoint if first fails
-            alt_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
+        # If 2.5-flash fails, try 2.0-flash as fallback
+        if response.status_code == 404:
+            alt_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
             response = requests.post(alt_url, headers=headers, json=data, timeout=30)
+        
+        # If still 404, try the basic gemini-pro
+        if response.status_code == 404:
+            basic_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
+            response = requests.post(basic_url, headers=headers, json=data, timeout=30)
         
         response.raise_for_status()
         
@@ -58,7 +62,7 @@ def call_gemini_api(api_key, prompt):
             
     except requests.exceptions.HTTPError as e:
         if response.status_code == 404:
-            raise Exception("API endpoint not found. Please verify your API key has access to Gemini API.")
+            raise Exception("API model not found. Your API key may not have access to the latest Gemini models.")
         elif response.status_code == 403:
             raise Exception("API key invalid or access denied. Please check your Gemini API key.")
         elif response.status_code == 429:

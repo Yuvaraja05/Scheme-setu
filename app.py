@@ -4,10 +4,14 @@ import streamlit as st
 try:
     import google.generativeai as genai
     AI_AVAILABLE = True
-except ImportError:
+    st.sidebar.success("✅ AI Service Available")
+except ImportError as e:
     AI_AVAILABLE = False
-    st.error("⚠️ Google Generative AI library not available. Please check the deployment logs.")
-    st.info("This might be a temporary issue with package installation. Try refreshing the page in a few minutes.")
+    st.sidebar.error("❌ AI Service Unavailable")
+    st.sidebar.info("Package installation in progress...")
+except Exception as e:
+    AI_AVAILABLE = False
+    st.sidebar.warning(f"⚠️ AI Service Issue: {str(e)}")
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="SchemeSetu | Government Scheme Finder", page_icon="🇮🇳", layout="wide")
@@ -51,7 +55,30 @@ if st.button("🔍 Find My Schemes", type="primary"):
         st.error("🔑 Please enter your Gemini API Key in the sidebar to continue.")
         st.info("💡 Get your free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)")
     elif not AI_AVAILABLE:
-        st.error("❌ AI service is not available. Please check the deployment logs or try again later.")
+        st.error("❌ AI service is currently unavailable due to package installation issues.")
+        st.info("🔧 This is a temporary deployment issue. The app is being updated to resolve this.")
+        
+        # Show a temporary message with next steps
+        st.markdown("---")
+        st.markdown("### 🚧 Temporary Service Notice")
+        st.markdown("""
+        **What's happening?** The AI package is still installing on the server.
+        
+        **What can you do?**
+        - ⏰ Wait 2-3 minutes and refresh the page
+        - 🔄 Try clicking the button again
+        - 📱 The app interface is working - only AI analysis is temporarily unavailable
+        
+        **Your profile is ready:**
+        - Age: {age}
+        - Gender: {gender}  
+        - State: {state}
+        - Occupation: {occupation}
+        - Income: {income}
+        - Category: {category}
+        - Language: {language}
+        """.format(age=age, gender=gender, state=state, occupation=occupation, income=income, category=category, language=language))
+        
     else:
         try:
             genai.configure(api_key=api_key)
@@ -96,10 +123,12 @@ if st.button("🔍 Find My Schemes", type="primary"):
                 
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
-            if "API_KEY" in str(e).upper():
+            if "API_KEY" in str(e).upper() or "INVALID" in str(e).upper():
                 st.error("🔑 Invalid API Key. Please check your Gemini API key and try again.")
+                st.info("Make sure you copied the complete API key from Google AI Studio.")
             else:
                 st.error("🔧 Technical issue occurred. Please try again or check your internet connection.")
+                st.info("If the problem persists, the AI service may be temporarily unavailable.")
 
 # --- FOOTER ---
 st.markdown("---")

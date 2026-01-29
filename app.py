@@ -6,9 +6,20 @@ import json
 AI_AVAILABLE = True
 st.sidebar.success("✅ AI Service Available")
 
+def validate_api_key(api_key):
+    """Quick validation of API key format"""
+    if not api_key:
+        return False, "API key is empty"
+    if not api_key.startswith('AIza'):
+        return False, "API key should start with 'AIza'"
+    if len(api_key) < 35:
+        return False, "API key appears too short"
+    return True, "API key format looks valid"
+
 def call_gemini_api(api_key, prompt):
     """Call Gemini API directly using REST"""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
+    # Updated to correct Gemini API endpoint
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
     
     headers = {
         'Content-Type': 'application/json',
@@ -19,21 +30,43 @@ def call_gemini_api(api_key, prompt):
             "parts": [{
                 "text": prompt
             }]
-        }]
+        }],
+        "generationConfig": {
+            "temperature": 0.7,
+            "topK": 1,
+            "topP": 1,
+            "maxOutputTokens": 2048,
+        }
     }
     
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
+        
+        # Debug information
+        if response.status_code != 200:
+            # Try alternative endpoint if first fails
+            alt_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
+            response = requests.post(alt_url, headers=headers, json=data, timeout=30)
+        
         response.raise_for_status()
         
         result = response.json()
         if 'candidates' in result and len(result['candidates']) > 0:
             return result['candidates'][0]['content']['parts'][0]['text']
         else:
-            return "Error: No response generated"
+            return "Error: No response generated from AI"
             
+    except requests.exceptions.HTTPError as e:
+        if response.status_code == 404:
+            raise Exception("API endpoint not found. Please verify your API key has access to Gemini API.")
+        elif response.status_code == 403:
+            raise Exception("API key invalid or access denied. Please check your Gemini API key.")
+        elif response.status_code == 429:
+            raise Exception("API quota exceeded. Please try again later.")
+        else:
+            raise Exception(f"HTTP {response.status_code}: {response.text}")
     except requests.exceptions.RequestException as e:
-        raise Exception(f"API request failed: {str(e)}")
+        raise Exception(f"Network error: {str(e)}")
     except KeyError as e:
         raise Exception(f"Unexpected API response format: {str(e)}")
     except Exception as e:
@@ -81,59 +114,72 @@ if st.button("🔍 Find My Schemes", type="primary"):
         st.error("🔑 Please enter your Gemini API Key in the sidebar to continue.")
         st.info("💡 Get your free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)")
     else:
-        try:
-            # The Prompt that acts as a Government Expert
-            prompt = f"""
-            Act as an expert Government Policy Consultant for India.
-            
-            **User Profile:**
-            - Age: {age}
-            - Gender: {gender}
-            - State: {state}
-            - Occupation: {occupation}
-            - Income Group: {income}
-            - Category: {category}
-            
-            **Task:**
-            1. Identify 3 major Government of India (Central or State specific to {state}) schemes this person is HIGHLY likely to be eligible for.
-            2. **THE AI REASONING:** For each scheme, strictly explain *WHY* this specific user qualifies. Use this format:
-               - **Scheme Name**
-               - **One-line Benefit** (e.g., "Get ₹5,000 per month")
-               - **WHY YOU QUALIFY:** "You qualify because you are [specific age/gender/occupation/income/category criteria that matches]. For example: 'You qualify because you are under 25, belong to {category} category, and your family income is {income} which falls within the scheme's income limits.'"
-               - **Key Documents Needed**
-            3. **Required Documents:** A consolidated list of all documents they will likely need across all schemes.
-            
-            **CRITICAL REQUIREMENTS:**
-            - For each scheme, provide SPECIFIC reasoning based on the user's exact profile
-            - Mention the EXACT criteria from their profile that makes them eligible
-            - Be precise about age ranges, income limits, category requirements, etc.
-            - Output EVERYTHING in this language: **{language}**.
-            - Use clear, simple language suitable for a common citizen.
-            - Format with clear headings and bullet points.
-            """
-            
-            with st.spinner(f"Searching government database using AI in {language}..."):
-                response_text = call_gemini_api(api_key, prompt)
+        # Validate API key format
+        is_valid, validation_msg = validate_api_key(api_key)
+        if not is_valid:
+            st.error(f"🔑 API Key Issue: {validation_msg}")
+            st.info("Please check your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)")
+        else:
+            try:
+                # The Prompt that acts as a Government Expert
+                prompt = f"""
+                Act as an expert Government Policy Consultant for India.
                 
-                st.markdown("---")
-                st.success("✅ AI Analysis Complete")
-                st.markdown(response_text)
+                **User Profile:**
+                - Age: {age}
+                - Gender: {gender}
+                - State: {state}
+                - Occupation: {occupation}
+                - Income Group: {income}
+                - Category: {category}
                 
-        except Exception as e:
-            error_msg = str(e)
-            st.error(f"❌ Error: {error_msg}")
-            
-            if "API_KEY" in error_msg.upper() or "INVALID" in error_msg.upper() or "403" in error_msg:
-                st.error("🔑 Invalid API Key. Please check your Gemini API key and try again.")
-                st.info("Make sure you copied the complete API key from Google AI Studio.")
-            elif "quota" in error_msg.lower() or "429" in error_msg:
-                st.error("📊 API quota exceeded. Please try again later or check your API limits.")
-            elif "network" in error_msg.lower() or "timeout" in error_msg.lower():
-                st.error("🌐 Network issue. Please check your internet connection and try again.")
-            else:
-                st.error("🔧 Technical issue occurred. Please try again in a moment.")
-                with st.expander("🔍 Technical Details"):
-                    st.code(error_msg)
+                **Task:**
+                1. Identify 3 major Government of India (Central or State specific to {state}) schemes this person is HIGHLY likely to be eligible for.
+                2. **THE AI REASONING:** For each scheme, strictly explain *WHY* this specific user qualifies. Use this format:
+                   - **Scheme Name**
+                   - **One-line Benefit** (e.g., "Get ₹5,000 per month")
+                   - **WHY YOU QUALIFY:** "You qualify because you are [specific age/gender/occupation/income/category criteria that matches]. For example: 'You qualify because you are under 25, belong to {category} category, and your family income is {income} which falls within the scheme's income limits.'"
+                   - **Key Documents Needed**
+                3. **Required Documents:** A consolidated list of all documents they will likely need across all schemes.
+                
+                **CRITICAL REQUIREMENTS:**
+                - For each scheme, provide SPECIFIC reasoning based on the user's exact profile
+                - Mention the EXACT criteria from their profile that makes them eligible
+                - Be precise about age ranges, income limits, category requirements, etc.
+                - Output EVERYTHING in this language: **{language}**.
+                - Use clear, simple language suitable for a common citizen.
+                - Format with clear headings and bullet points.
+                """
+                
+                with st.spinner(f"Searching government database using AI in {language}..."):
+                    response_text = call_gemini_api(api_key, prompt)
+                    
+                    st.markdown("---")
+                    st.success("✅ AI Analysis Complete")
+                    st.markdown(response_text)
+                    
+            except Exception as e:
+                error_msg = str(e)
+                st.error(f"❌ Error: {error_msg}")
+                
+                if "API endpoint not found" in error_msg:
+                    st.error("🔧 API Configuration Issue: The Gemini API endpoint may have changed.")
+                    st.info("Please verify your API key has access to Gemini API at [Google AI Studio](https://makersuite.google.com/app/apikey)")
+                elif "invalid" in error_msg.lower() or "403" in error_msg or "access denied" in error_msg.lower():
+                    st.error("� Invalid API Key or Access Denied.")
+                    st.info("Please check your API key and ensure it has Gemini API access enabled.")
+                elif "quota" in error_msg.lower() or "429" in error_msg:
+                    st.error("📊 API quota exceeded. Please try again later or check your API limits.")
+                elif "network" in error_msg.lower() or "timeout" in error_msg.lower():
+                    st.error("🌐 Network issue. Please check your internet connection and try again.")
+                else:
+                    st.error("🔧 Technical issue occurred. Please try again in a moment.")
+                    with st.expander("🔍 Technical Details"):
+                        st.code(error_msg)
+                        st.markdown("**Troubleshooting:**")
+                        st.markdown("1. Verify your API key is correct")
+                        st.markdown("2. Check if Gemini API is enabled in your Google Cloud project")
+                        st.markdown("3. Try refreshing the page")
 
 # --- FOOTER ---
 st.markdown("---")

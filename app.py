@@ -1,5 +1,13 @@
 import streamlit as st
-import google.generativeai as genai
+
+# Try importing the AI library with error handling
+try:
+    import google.generativeai as genai
+    AI_AVAILABLE = True
+except ImportError:
+    AI_AVAILABLE = False
+    st.error("⚠️ Google Generative AI library not available. Please check the deployment logs.")
+    st.info("This might be a temporary issue with package installation. Try refreshing the page in a few minutes.")
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="SchemeSetu | Government Scheme Finder", page_icon="🇮🇳", layout="wide")
@@ -34,7 +42,9 @@ language = st.selectbox("Select Output Language / भाषा चुनें",
 
 # --- AI LOGIC ---
 if st.button("🔍 Find My Schemes", type="primary"):
-    if not api_key:
+    if not AI_AVAILABLE:
+        st.error("❌ AI service is not available. Please try again later or contact support.")
+    elif not api_key:
         st.error("Please enter your Gemini API Key in the sidebar.")
     else:
         try:

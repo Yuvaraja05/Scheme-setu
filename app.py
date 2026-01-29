@@ -9,84 +9,20 @@ except ImportError:
     st.error("⚠️ Google Generative AI library not available. Please check the deployment logs.")
     st.info("This might be a temporary issue with package installation. Try refreshing the page in a few minutes.")
 
-# Demo data for different user profiles
-def get_demo_schemes(age, gender, state, occupation, income, category, language):
-    """Generate demo scheme recommendations based on user profile"""
-    
-    schemes = []
-    
-    # Scheme 1: Based on age and occupation
-    if age <= 35 and occupation == "Student":
-        schemes.append({
-            "name": "PM Scholarship Scheme" if language == "English" else "प्रधानमंत्री छात्रवृत्ति योजना",
-            "benefit": "Get ₹2,500 per month for studies" if language == "English" else "अध्ययन के लिए ₹2,500 प्रति माह प्राप्त करें",
-            "qualification": f"You qualify because you are {age} years old (under 35), work as a {occupation}, and belong to {category} category. This scheme specifically targets young students from all backgrounds." if language == "English" else f"आप योग्य हैं क्योंकि आप {age} वर्ष के हैं (35 से कम), {occupation} हैं, और {category} श्रेणी से हैं।",
-            "documents": ["Aadhaar Card", "Income Certificate", "Educational Documents"] if language == "English" else ["आधार कार्ड", "आय प्रमाण पत्र", "शैक्षणिक दस्तावेज"]
-        })
-    
-    # Scheme 2: Based on income and category
-    if income in ["< ₹1 Lakh", "₹1 Lakh - ₹3 Lakhs"] and category in ["SC/ST", "OBC"]:
-        schemes.append({
-            "name": "Post Matric Scholarship" if language == "English" else "पोस्ट मैट्रिक छात्रवृत्ति",
-            "benefit": "Get ₹1,200 per month + fees reimbursement" if language == "English" else "₹1,200 प्रति माह + फीस की प्रतिपूर्ति प्राप्त करें",
-            "qualification": f"You qualify because your family income is {income} (below ₹3 lakhs) and you belong to {category} category. This scheme is specifically designed for economically weaker sections." if language == "English" else f"आप योग्य हैं क्योंकि आपकी पारिवारिक आय {income} है और आप {category} श्रेणी से हैं।",
-            "documents": ["Caste Certificate", "Income Certificate", "Bank Details"] if language == "English" else ["जाति प्रमाण पत्र", "आय प्रमाण पत्र", "बैंक विवरण"]
-        })
-    
-    # Scheme 3: State-specific scheme
-    if state == "Tamil Nadu" and occupation == "Farmer":
-        schemes.append({
-            "name": "Tamil Nadu Farmer Welfare Scheme" if language == "English" else "तमिलनाडु किसान कल्याण योजना",
-            "benefit": "Get ₹6,000 per year + crop insurance" if language == "English" else "₹6,000 प्रति वर्ष + फसल बीमा प्राप्त करें",
-            "qualification": f"You qualify because you are a {occupation} residing in {state} state. This scheme targets agricultural workers in Tamil Nadu specifically." if language == "English" else f"आप योग्य हैं क्योंकि आप {state} राज्य में रहने वाले {occupation} हैं।",
-            "documents": ["Land Records", "Aadhaar Card", "Bank Passbook"] if language == "English" else ["भूमि रिकॉर्ड", "आधार कार्ड", "बैंक पासबुक"]
-        })
-    
-    # Default schemes if no specific matches
-    if len(schemes) < 3:
-        default_schemes = [
-            {
-                "name": "Ayushman Bharat Health Scheme" if language == "English" else "आयुष्मान भारत स्वास्थ्य योजना",
-                "benefit": "Get ₹5 lakh health insurance coverage" if language == "English" else "₹5 लाख स्वास्थ्य बीमा कवरेज प्राप्त करें",
-                "qualification": f"You qualify because your family income is {income} and you belong to {category} category. This universal health scheme covers most Indian families." if language == "English" else f"आप योग्य हैं क्योंकि आपकी पारिवारिक आय {income} है और आप {category} श्रेणी से हैं।",
-                "documents": ["Aadhaar Card", "Ration Card", "Income Certificate"] if language == "English" else ["आधार कार्ड", "राशन कार्ड", "आय प्रमाण पत्र"]
-            },
-            {
-                "name": "PM Kisan Samman Nidhi" if language == "English" else "पीएम किसान सम्मान निधि",
-                "benefit": "Get ₹6,000 per year in 3 installments" if language == "English" else "3 किस्तों में ₹6,000 प्रति वर्ष प्राप्त करें",
-                "qualification": f"You qualify because you are {age} years old and your occupation is {occupation}. This scheme supports agricultural families across India." if language == "English" else f"आप योग्य हैं क्योंकि आप {age} वर्ष के हैं और आपका व्यवसाय {occupation} है।",
-                "documents": ["Land Records", "Aadhaar Card", "Bank Details"] if language == "English" else ["भूमि रिकॉर्ड", "आधार कार्ड", "बैंक विवरण"]
-            },
-            {
-                "name": "Digital India Initiative" if language == "English" else "डिजिटल इंडिया पहल",
-                "benefit": "Get free digital literacy training" if language == "English" else "मुफ्त डिजिटल साक्षरता प्रशिक्षण प्राप्त करें",
-                "qualification": f"You qualify because you are a {gender} from {state} state. This scheme promotes digital literacy across all demographics." if language == "English" else f"आप योग्य हैं क्योंकि आप {state} राज्य से {gender} हैं।",
-                "documents": ["Aadhaar Card", "Mobile Number", "Email ID"] if language == "English" else ["आधार कार्ड", "मोबाइल नंबर", "ईमेल आईडी"]
-            }
-        ]
-        
-        # Add default schemes to reach 3 total
-        for scheme in default_schemes:
-            if len(schemes) < 3:
-                schemes.append(scheme)
-    
-    return schemes[:3]  # Return exactly 3 schemes
-
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="SchemeSetu | Government Scheme Finder", page_icon="🇮🇳", layout="wide")
 
 # --- SIDEBAR: CONFIG ---
 st.sidebar.header("⚙️ Configuration")
-use_demo_mode = st.sidebar.checkbox("🚀 Use Demo Mode (No API Key Required)", value=True)
-
-if not use_demo_mode:
-    api_key = st.sidebar.text_input("Enter Gemini API Key", type="password")
-else:
-    api_key = None
-    st.sidebar.success("✅ Demo Mode Active - Using Sample Data")
+api_key = st.sidebar.text_input("Enter Gemini API Key", type="password")
 
 st.sidebar.markdown("---")
 st.sidebar.info("🇮🇳 **SchemeSetu** bridges the gap between citizens and government benefits.")
+st.sidebar.markdown("### 🔑 How to get API Key:")
+st.sidebar.markdown("1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)")
+st.sidebar.markdown("2. Sign in with Google account")
+st.sidebar.markdown("3. Click 'Create API Key'")
+st.sidebar.markdown("4. Copy and paste here")
 
 # --- MAIN UI ---
 st.title("🇮🇳 SchemeSetu (स्कीम सेतु)")
@@ -111,40 +47,11 @@ language = st.selectbox("Select Output Language / भाषा चुनें",
 
 # --- AI LOGIC ---
 if st.button("🔍 Find My Schemes", type="primary"):
-    if use_demo_mode:
-        # Demo mode - use predefined schemes
-        with st.spinner(f"Analyzing your profile using demo data in {language}..."):
-            import time
-            time.sleep(2)  # Simulate processing time
-            
-            demo_schemes = get_demo_schemes(age, gender, state, occupation, income, category, language)
-            
-            st.markdown("---")
-            st.success("✅ Analysis Complete (Demo Mode)")
-            
-            # Display schemes
-            for i, scheme in enumerate(demo_schemes, 1):
-                st.markdown(f"### {i}. {scheme['name']}")
-                st.markdown(f"**Benefit:** {scheme['benefit']}")
-                st.markdown(f"**WHY YOU QUALIFY:** {scheme['qualification']}")
-                st.markdown(f"**Documents Needed:** {', '.join(scheme['documents'])}")
-                st.markdown("---")
-            
-            # Consolidated documents
-            all_docs = set()
-            for scheme in demo_schemes:
-                all_docs.update(scheme['documents'])
-            
-            st.markdown("### 📋 Consolidated Document List")
-            for doc in sorted(all_docs):
-                st.markdown(f"• {doc}")
-                
-            st.info("💡 This is demo mode with sample data. For real-time AI analysis, uncheck 'Demo Mode' and enter your Gemini API key.")
-            
+    if not api_key:
+        st.error("🔑 Please enter your Gemini API Key in the sidebar to continue.")
+        st.info("💡 Get your free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)")
     elif not AI_AVAILABLE:
-        st.error("❌ AI service is not available. Please try Demo Mode or try again later.")
-    elif not api_key:
-        st.error("Please enter your Gemini API Key in the sidebar or enable Demo Mode.")
+        st.error("❌ AI service is not available. Please check the deployment logs or try again later.")
     else:
         try:
             genai.configure(api_key=api_key)
@@ -188,8 +95,11 @@ if st.button("🔍 Find My Schemes", type="primary"):
                 st.markdown(response.text)
                 
         except Exception as e:
-            st.error(f"Error: {e}")
-            st.info("💡 Try Demo Mode for immediate results without API key requirements.")
+            st.error(f"❌ Error: {str(e)}")
+            if "API_KEY" in str(e).upper():
+                st.error("🔑 Invalid API Key. Please check your Gemini API key and try again.")
+            else:
+                st.error("🔧 Technical issue occurred. Please try again or check your internet connection.")
 
 # --- FOOTER ---
 st.markdown("---")

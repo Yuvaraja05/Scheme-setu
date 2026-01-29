@@ -1,30 +1,43 @@
 import streamlit as st
+import requests
+import json
 
-# Try importing the AI library with multiple fallback strategies
-AI_AVAILABLE = False
-AI_ERROR_MESSAGE = ""
+# Direct API approach - no problematic packages needed
+AI_AVAILABLE = True
+st.sidebar.success("✅ AI Service Available")
 
-try:
-    import google.generativeai as genai
-    AI_AVAILABLE = True
-    st.sidebar.success("✅ AI Service Available")
-except ImportError as e:
-    AI_ERROR_MESSAGE = f"Import Error: {str(e)}"
-    st.sidebar.error("❌ AI Package Missing")
+def call_gemini_api(api_key, prompt):
+    """Call Gemini API directly using REST"""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
+    
+    headers = {
+        'Content-Type': 'application/json',
+    }
+    
+    data = {
+        "contents": [{
+            "parts": [{
+                "text": prompt
+            }]
+        }]
+    }
+    
     try:
-        # Try alternative import method
-        import sys
-        import subprocess
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai==0.8.2", "--quiet"])
-        import google.generativeai as genai
-        AI_AVAILABLE = True
-        st.sidebar.success("✅ AI Service Available (Auto-installed)")
-    except Exception as install_error:
-        AI_ERROR_MESSAGE = f"Installation failed: {str(install_error)}"
-        st.sidebar.warning("⚠️ AI Auto-install Failed")
-except Exception as e:
-    AI_ERROR_MESSAGE = f"General Error: {str(e)}"
-    st.sidebar.warning(f"⚠️ AI Service Issue")
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        response.raise_for_status()
+        
+        result = response.json()
+        if 'candidates' in result and len(result['candidates']) > 0:
+            return result['candidates'][0]['content']['parts'][0]['text']
+        else:
+            return "Error: No response generated"
+            
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"API request failed: {str(e)}")
+    except KeyError as e:
+        raise Exception(f"Unexpected API response format: {str(e)}")
+    except Exception as e:
+        raise Exception(f"API call error: {str(e)}")
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="SchemeSetu | Government Scheme Finder", page_icon="🇮🇳", layout="wide")
@@ -67,40 +80,8 @@ if st.button("🔍 Find My Schemes", type="primary"):
     if not api_key:
         st.error("🔑 Please enter your Gemini API Key in the sidebar to continue.")
         st.info("💡 Get your free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)")
-    elif not AI_AVAILABLE:
-        st.error("❌ AI service is currently unavailable.")
-        
-        # Show detailed error information
-        with st.expander("🔍 Technical Details"):
-            st.code(AI_ERROR_MESSAGE)
-            st.markdown("**Possible solutions:**")
-            st.markdown("- Wait 2-3 minutes and refresh the page")
-            st.markdown("- Clear browser cache and reload")
-            st.markdown("- Try again in a few minutes")
-        
-        # Show a more helpful message
-        st.markdown("---")
-        st.markdown("### 🚧 Service Status")
-        st.info("""
-        **Current Status:** AI package installation in progress
-        
-        **Your Profile is Ready:**
-        - Age: {age} | Gender: {gender} | State: {state}
-        - Occupation: {occupation} | Income: {income} | Category: {category}
-        - Language: {language}
-        
-        **Next Steps:**
-        1. ⏰ Wait 2-3 minutes for package installation
-        2. 🔄 Refresh the page (Ctrl+F5 or Cmd+R)
-        3. 🔑 Enter your API key when service is available
-        4. 🎯 Get personalized scheme recommendations
-        """.format(age=age, gender=gender, state=state, occupation=occupation, income=income, category=category, language=language))
-        
     else:
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            
             # The Prompt that acts as a Government Expert
             prompt = f"""
             Act as an expert Government Policy Consultant for India.
@@ -132,20 +113,27 @@ if st.button("🔍 Find My Schemes", type="primary"):
             """
             
             with st.spinner(f"Searching government database using AI in {language}..."):
-                response = model.generate_content(prompt)
+                response_text = call_gemini_api(api_key, prompt)
                 
                 st.markdown("---")
                 st.success("✅ AI Analysis Complete")
-                st.markdown(response.text)
+                st.markdown(response_text)
                 
         except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
-            if "API_KEY" in str(e).upper() or "INVALID" in str(e).upper():
+            error_msg = str(e)
+            st.error(f"❌ Error: {error_msg}")
+            
+            if "API_KEY" in error_msg.upper() or "INVALID" in error_msg.upper() or "403" in error_msg:
                 st.error("🔑 Invalid API Key. Please check your Gemini API key and try again.")
                 st.info("Make sure you copied the complete API key from Google AI Studio.")
+            elif "quota" in error_msg.lower() or "429" in error_msg:
+                st.error("📊 API quota exceeded. Please try again later or check your API limits.")
+            elif "network" in error_msg.lower() or "timeout" in error_msg.lower():
+                st.error("🌐 Network issue. Please check your internet connection and try again.")
             else:
-                st.error("🔧 Technical issue occurred. Please try again or check your internet connection.")
-                st.info("If the problem persists, the AI service may be temporarily unavailable.")
+                st.error("🔧 Technical issue occurred. Please try again in a moment.")
+                with st.expander("🔍 Technical Details"):
+                    st.code(error_msg)
 
 # --- FOOTER ---
 st.markdown("---")

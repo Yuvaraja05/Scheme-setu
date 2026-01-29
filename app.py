@@ -33,10 +33,29 @@ def call_gemini_api(api_key, prompt):
         }],
         "generationConfig": {
             "temperature": 0.7,
-            "topK": 1,
-            "topP": 1,
-            "maxOutputTokens": 2048,
-        }
+            "topK": 40,
+            "topP": 0.95,
+            "maxOutputTokens": 8192,  # Increased from 2048 to 8192
+            "stopSequences": []
+        },
+        "safetySettings": [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH", 
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+        ]
     }
     
     try:
@@ -56,7 +75,23 @@ def call_gemini_api(api_key, prompt):
         
         result = response.json()
         if 'candidates' in result and len(result['candidates']) > 0:
-            return result['candidates'][0]['content']['parts'][0]['text']
+            candidate = result['candidates'][0]
+            
+            # Check if response was blocked or truncated
+            if 'finishReason' in candidate:
+                finish_reason = candidate['finishReason']
+                if finish_reason == 'SAFETY':
+                    return "⚠️ Response was blocked due to safety filters. Please try with different input or contact support."
+                elif finish_reason == 'MAX_TOKENS':
+                    return candidate['content']['parts'][0]['text'] + "\n\n⚠️ **Note**: Response was truncated due to length limits. The analysis above covers the main schemes you qualify for."
+                elif finish_reason in ['STOP', 'OTHER']:
+                    return candidate['content']['parts'][0]['text']
+            
+            # Return the full response
+            if 'content' in candidate and 'parts' in candidate['content']:
+                return candidate['content']['parts'][0]['text']
+            else:
+                return "Error: Unexpected response format from AI"
         else:
             return "Error: No response generated from AI"
             
@@ -127,7 +162,7 @@ if st.button("🔍 Find My Schemes", type="primary"):
             try:
                 # The Prompt that acts as a Government Expert
                 prompt = f"""
-                Act as an expert Government Policy Consultant for India.
+                Act as an expert Government Policy Consultant for India. Provide a COMPLETE response covering all 3 schemes.
                 
                 **User Profile:**
                 - Age: {age}
@@ -137,22 +172,36 @@ if st.button("🔍 Find My Schemes", type="primary"):
                 - Income Group: {income}
                 - Category: {category}
                 
-                **Task:**
-                1. Identify 3 major Government of India (Central or State specific to {state}) schemes this person is HIGHLY likely to be eligible for.
-                2. **THE AI REASONING:** For each scheme, strictly explain *WHY* this specific user qualifies. Use this format:
+                **Task - PROVIDE COMPLETE RESPONSE:**
+                1. Identify exactly 3 major Government schemes this person qualifies for
+                2. For EACH scheme, provide ALL required information:
                    - **Scheme Name**
-                   - **One-line Benefit** (e.g., "Get ₹5,000 per month")
-                   - **WHY YOU QUALIFY:** "You qualify because you are [specific age/gender/occupation/income/category criteria that matches]. For example: 'You qualify because you are under 25, belong to {category} category, and your family income is {income} which falls within the scheme's income limits.'"
-                   - **Key Documents Needed**
-                3. **Required Documents:** A consolidated list of all documents they will likely need across all schemes.
+                   - **Benefit** (e.g., "Get ₹5,000 per month")
+                   - **WHY YOU QUALIFY** (specific reasoning based on profile)
+                   - **Documents Needed**
+                3. **Consolidated Documents List** at the end
                 
                 **CRITICAL REQUIREMENTS:**
-                - For each scheme, provide SPECIFIC reasoning based on the user's exact profile
-                - Mention the EXACT criteria from their profile that makes them eligible
-                - Be precise about age ranges, income limits, category requirements, etc.
-                - Output EVERYTHING in this language: **{language}**.
-                - Use clear, simple language suitable for a common citizen.
-                - Format with clear headings and bullet points.
+                - COMPLETE all 3 schemes before stopping
+                - Use specific criteria from user profile in reasoning
+                - Output in {language}
+                - Use clear formatting with headings
+                - Ensure response is COMPLETE and not cut off
+                
+                **Format Example:**
+                ## Scheme 1: [Name]
+                **Benefit:** [Amount/benefit]
+                **Why You Qualify:** You qualify because you are {age} years old, {occupation}, from {state}, with income {income}, belonging to {category} category...
+                **Documents:** [List]
+                
+                ## Scheme 2: [Name]
+                [Same format]
+                
+                ## Scheme 3: [Name]
+                [Same format]
+                
+                ## Required Documents Summary:
+                [Consolidated list]
                 """
                 
                 with st.spinner(f"Searching government database using AI in {language}..."):

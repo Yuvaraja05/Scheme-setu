@@ -1,17 +1,30 @@
 import streamlit as st
 
-# Try importing the AI library with error handling
+# Try importing the AI library with multiple fallback strategies
+AI_AVAILABLE = False
+AI_ERROR_MESSAGE = ""
+
 try:
     import google.generativeai as genai
     AI_AVAILABLE = True
     st.sidebar.success("✅ AI Service Available")
 except ImportError as e:
-    AI_AVAILABLE = False
-    st.sidebar.error("❌ AI Service Unavailable")
-    st.sidebar.info("Package installation in progress...")
+    AI_ERROR_MESSAGE = f"Import Error: {str(e)}"
+    st.sidebar.error("❌ AI Package Missing")
+    try:
+        # Try alternative import method
+        import sys
+        import subprocess
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generativeai==0.8.2", "--quiet"])
+        import google.generativeai as genai
+        AI_AVAILABLE = True
+        st.sidebar.success("✅ AI Service Available (Auto-installed)")
+    except Exception as install_error:
+        AI_ERROR_MESSAGE = f"Installation failed: {str(install_error)}"
+        st.sidebar.warning("⚠️ AI Auto-install Failed")
 except Exception as e:
-    AI_AVAILABLE = False
-    st.sidebar.warning(f"⚠️ AI Service Issue: {str(e)}")
+    AI_ERROR_MESSAGE = f"General Error: {str(e)}"
+    st.sidebar.warning(f"⚠️ AI Service Issue")
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="SchemeSetu | Government Scheme Finder", page_icon="🇮🇳", layout="wide")
@@ -55,28 +68,32 @@ if st.button("🔍 Find My Schemes", type="primary"):
         st.error("🔑 Please enter your Gemini API Key in the sidebar to continue.")
         st.info("💡 Get your free API key from [Google AI Studio](https://makersuite.google.com/app/apikey)")
     elif not AI_AVAILABLE:
-        st.error("❌ AI service is currently unavailable due to package installation issues.")
-        st.info("🔧 This is a temporary deployment issue. The app is being updated to resolve this.")
+        st.error("❌ AI service is currently unavailable.")
         
-        # Show a temporary message with next steps
+        # Show detailed error information
+        with st.expander("🔍 Technical Details"):
+            st.code(AI_ERROR_MESSAGE)
+            st.markdown("**Possible solutions:**")
+            st.markdown("- Wait 2-3 minutes and refresh the page")
+            st.markdown("- Clear browser cache and reload")
+            st.markdown("- Try again in a few minutes")
+        
+        # Show a more helpful message
         st.markdown("---")
-        st.markdown("### 🚧 Temporary Service Notice")
-        st.markdown("""
-        **What's happening?** The AI package is still installing on the server.
+        st.markdown("### 🚧 Service Status")
+        st.info("""
+        **Current Status:** AI package installation in progress
         
-        **What can you do?**
-        - ⏰ Wait 2-3 minutes and refresh the page
-        - 🔄 Try clicking the button again
-        - 📱 The app interface is working - only AI analysis is temporarily unavailable
-        
-        **Your profile is ready:**
-        - Age: {age}
-        - Gender: {gender}  
-        - State: {state}
-        - Occupation: {occupation}
-        - Income: {income}
-        - Category: {category}
+        **Your Profile is Ready:**
+        - Age: {age} | Gender: {gender} | State: {state}
+        - Occupation: {occupation} | Income: {income} | Category: {category}
         - Language: {language}
+        
+        **Next Steps:**
+        1. ⏰ Wait 2-3 minutes for package installation
+        2. 🔄 Refresh the page (Ctrl+F5 or Cmd+R)
+        3. 🔑 Enter your API key when service is available
+        4. 🎯 Get personalized scheme recommendations
         """.format(age=age, gender=gender, state=state, occupation=occupation, income=income, category=category, language=language))
         
     else:
